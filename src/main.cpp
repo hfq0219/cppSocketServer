@@ -6,8 +6,11 @@
 #include "Threadpool.h"
 #include <memory>
 
+#define BEGIN_FLAG "*-begin-*" //接收信息起止标志符
+#define END_FLAG "*-end-*"
+
 Threadpool thread_pool; //开启线程池
-Epoll epoll(thread_pool); //创建epoll
+Epoll epoll(thread_pool,BEGIN_FLAG,END_FLAG); //创建epoll
 
 int main()
 {
@@ -26,7 +29,7 @@ int main()
         Loge<<"set socket non blocking error\n";
         return -1;
     }
-    std::shared_ptr<Task> task(new Task(listen_fd)); //新建监听任务
+    std::shared_ptr<Task> task(new Task(listen_fd,BEGIN_FLAG,END_FLAG)); //新建监听任务
     epoll.addEvent(listen_fd,task,EPOLLIN|EPOLLET); //加入epoll
     while(1)
     {

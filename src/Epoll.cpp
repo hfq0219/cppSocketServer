@@ -6,8 +6,11 @@
 #include <arpa/inet.h>
 #include "util.h"
 #include "Log.h"
+#include "AsyncLog.h"
 
-Epoll::Epoll(Threadpool &thread_pool):ep_fd(epoll_create(1)),thread_pool_(thread_pool)
+extern AsyncLog log;
+
+Epoll::Epoll(Threadpool &thread_pool,std::string begin_flag,std::string end_flag):ep_fd(epoll_create(1)),thread_pool_(thread_pool),msg_begin_flag(begin_flag),msg_end_flag(end_flag)
 {
     assert(ep_fd>0);
     Logi<<"Epoll create\n";
@@ -17,6 +20,7 @@ Epoll::~Epoll()
 {
     close(ep_fd);
     thread_pool_.stopThread();
+    log.thread_exit();
     Logi<<"Epoll exit\n";
 }
 
@@ -76,7 +80,7 @@ int Epoll::waitEpoll(int listen_fd,int timeout)
         epoll_event ev=events[i];
         if(ev.data.fd==listen_fd)
         {
-            acceptNewConnect(listen_fd);
+            acceptNewConnect(listen_fd); //接收新连接，加入Epoll监听
         }
         else
         {
@@ -134,7 +138,7 @@ void Epoll::acceptNewConnect(int listen_fd)
             return;
         }
         int timeout=2*60; //长连接2分钟
-        std::shared_ptr<Task> task(new Task(accept_fd));
+        std::shared_ptr<Task> task(new Task(accept_fd,msg_begin_flag,msg_end_flag));
         addEvent(accept_fd,task,EPOLLIN|EPOLLET);
         addTimer(task,timeout);
     }

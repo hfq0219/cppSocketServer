@@ -6,6 +6,7 @@
 #include "Threadpool.h"
 #include "Timer.h"
 #include <memory>
+#include <string>
 
 const int EVENT_SIZE=1024;
 const int MAX_FDS=1024;
@@ -18,8 +19,10 @@ private:
     std::shared_ptr<Task> fd2task[EVENT_SIZE];
     Threadpool &thread_pool_;
     TimerManager manager;
+    std::string msg_begin_flag;
+    std::string msg_end_flag;
 public:
-    Epoll(Threadpool &thread_pool);
+    Epoll(Threadpool &thread_pool,std::string begin_flag,std::string end_flag);
     ~Epoll();
     int addEvent(int fd,std::shared_ptr<Task> task,uint32_t event);
     int modEvent(int fd,std::shared_ptr<Task> task,uint32_t event);

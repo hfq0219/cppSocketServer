@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <queue>
 #include <memory>
 #include "Timer.h"
 
@@ -12,13 +13,14 @@ private:
     std::string begin_;
     std::string end_;
     std::string read_buff;
-    std::string write_buff;
+    std::queue<std::string> write_buff;
     bool error_;
+    bool read_close;
     std::weak_ptr<TimerNode> timer_;
 public:
     bool can_read;
     bool can_write;
-    Task(int fd,std::string begin="*-begin-*",std::string end="*-end-*");
+    Task(int fd,std::string begin,std::string end);
     ~Task();
     void run();
     void handle_read();

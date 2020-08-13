@@ -6,7 +6,7 @@
 
 extern Epoll epoll;
 
-Task::Task(int fd,std::string begin,std::string end):fd_(fd),begin_(begin),end_(end),error_(false)
+Task::Task(int fd,std::string begin,std::string end):fd_(fd),begin_(begin),end_(end),error_(false),read_close(false)
 {
     Logi<<"new task fd: "<<fd_<<"\n";
 }
@@ -20,30 +20,31 @@ Task::~Task()
 void Task::run()
 {
     Logi<<"task fd: "<<fd_<<" handle new data\n";
-    if(can_read)
+    if(can_read) //读新信息
     {
         int nread=readEagain(fd_,read_buff);
-        if(nread<0)
+        if(nread<0) //读出错
         {
             Loge<<"read error\n";
             handle_error();
             error_=true;
         }
-        else if(nread==0)
+        else if(nread==0) //客户端可能已经关闭，所以读返回0
         {
+            read_close=true;
             Logi<<"task fd: "<<fd_<<" read num 0\n";
-            return;
-        }
-        if(!error_)
-        {
-            handle_read();
         }
     }
-    if(can_write)
+    Logi<<read_buff<<"\n";
+    if(read_buff.size()>0) //从读缓冲区取出完整的信息到write_buff
+    {
+        handle_read(); //没读到开始标志会使error_为true，信息错误，否则取出每一条完整信息放入write_buff，下次可写
+    }
+    if(can_write) //write_buff有数据可写
     {
         handle_write();
     }
-    if(!error_)
+    if(!error_ && !read_close)
     {
         can_read=false;
         can_write=false;
@@ -52,13 +53,15 @@ void Task::run()
         {
             event_|=EPOLLOUT;
         }
-        epoll.addTimer(shared_from_this(),2*60); //设置新的计时器，2分钟超时
-        epoll.modEvent(fd_,shared_from_this(),event_);
+        int timeout=2*60;
+        epoll.addTimer(shared_from_this(),timeout); //设置新的计时器，2分钟超时
+        epoll.modEvent(fd_,shared_from_this(),event_); //修改epoll监听
     }
 }
 
-void Task::handle_read() //根据begin_和end_设定的标志取出一条完整的信息
+void Task::handle_read() //根据begin_和end_设定的标志取出每一条完整的信息
 {
+    if(read_buff.size()<begin_.size()) return;
     int pos_begin=read_buff.find(begin_);
     int pos_end=read_buff.find(end_);
     if(pos_begin==read_buff.npos)
@@ -77,19 +80,36 @@ void Task::handle_read() //根据begin_和end_设定的标志取出一条完整�
     {
         Logi<<"begin is behind end, discard end~begin\n";
         read_buff=read_buff.substr(pos_begin);
-        return;
+        handle_read();
     }
-    write_buff=read_buff.substr(pos_begin+begin_.size(),pos_end-pos_begin-begin_.size());
-    read_buff=read_buff.substr(pos_end+end_.size());
+    else
+    {
+        write_buff.push(read_buff.substr(pos_begin+begin_.size(),pos_end-pos_begin-begin_.size())); //得到一条完整信息
+        read_buff=read_buff.substr(pos_end+end_.size()); //
+        handle_read();
+    }
 }
 
 void Task::handle_write()
 {
-    int nwrite=writeEagain(fd_,write_buff);
-    if(nwrite<0)
+    while(!write_buff.empty())
     {
-        Loge<<"write error\n";
-        error_=true;
+        std::string &msg=write_buff.front(); //从队列头部取信息写
+        int nwrite=writeEagain(fd_,msg);
+        if(nwrite<0) //写出错，结束
+        {
+            Loge<<"write error\n";
+            error_=true;
+            return;
+        }
+        if(msg.empty()) //写完该条信息，从buff中推出，继续写下一条信息
+        {
+            write_buff.pop();
+        }
+        else //该条信息没写完，可能缓冲区已满，结束写
+        {
+            break;
+        }
     }
 }
 

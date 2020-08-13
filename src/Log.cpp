@@ -70,6 +70,12 @@ Log& Log::operator<<(int num)
     return *this;
 }
 
+Log& Log::operator<<(size_t num)
+{
+    buff+=std::to_string(num);
+    return *this;
+}
+
 Log& Log::operator<<(double num)
 {
     buff+=std::to_string(num);

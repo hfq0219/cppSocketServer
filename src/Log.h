@@ -23,6 +23,7 @@ public:
     Log& operator<<(std::string str);
     Log& operator<<(char* str);
     Log& operator<<(int num);
+    Log& operator<<(size_t num);
     Log& operator<<(double num);
 };
 

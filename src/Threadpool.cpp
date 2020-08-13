@@ -55,4 +55,5 @@ Threadpool::~Threadpool()
         th.join();
         Logi<<"threadpool thread join\n";
     }
+    Logi<<"threadpool exit\n";
 }
